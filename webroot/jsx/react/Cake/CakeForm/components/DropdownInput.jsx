@@ -19,7 +19,8 @@ class DropdownInput extends React.Component {
 			value: this.props.value || this.props.default,
 			refresh: false,
 			collapseOption: false,
-			open: false
+			open: false,
+			hasError: false
 		};
 	}
 	static get defaultProps() {
@@ -52,7 +53,7 @@ class DropdownInput extends React.Component {
 
 	shouldComponentUpdate(newProps, newState) {
 		if (
-			PropCompare.hasDifferenceByPick(newState, this.state, ['value', 'open', 'collapseOption']) ||
+			PropCompare.hasDifferenceByPick(newState, this.state, ['value', 'open', 'collapseOption', 'hasError']) ||
 			PropCompare.hasDifferenceByPick(newProps, this.props, ['options', 'data'])
 		) {
 			return true;
@@ -61,12 +62,18 @@ class DropdownInput extends React.Component {
 	}
 
 	componentDidMount() {
+		this._isMounted = true;
 		var value = this.state.value;
 		if (this.props.useStore) {
 			value = cakeFormStore.getVal(this.props.cakeName);
 		}
 		this.changeValue(value);
 	}
+
+	componentWillUnmount() {
+		this._isMounted = false;
+	}
+
 
 	handleOptionValueClick(newVal) {
 		this.changeValue(newVal);
@@ -90,10 +97,20 @@ class DropdownInput extends React.Component {
 		}
 	}
 
+	handleError(errorMsgs) {
+		this.setState({hasError: true});
+	}
+
+	handleErrorFix() {
+		this.setState({hasError: false});
+	}
+
 	changeValue(newVal, forceUpdate) {
 		newVal = ValueValidate.fixNumeric(newVal);
 		var storeVal = cakeFormStore.getVal(this.props.cakeName);
-		if (forceUpdate || newVal != this.state.value) {
+		if (this._isMounted && 
+			(forceUpdate || newVal != this.state.value)
+		) {
 			var state = {
 				value: newVal,
 				open: false
@@ -111,12 +128,12 @@ class DropdownInput extends React.Component {
 
 	render() {
 		var inputOptions = _.pick(this.props, ["cakeName", "value", "default", "required"]),
-			dropdownOptions = _.pick(this.props, ["options", "renderOption", "getOptionValue", "renderButton", "data", "buttonText", "linkWrap", "label"]),
+			dropdownOptions = _.pick(this.props, ["options", "renderOption", "getOptionValue", "renderButton", "data", "buttonText", "linkWrap", "label", "required"]),
 			helpText = this.props.help,
 			validationMessage = cakeFormStore.getValidationErrors(this.props.cakeName),
 			dropdownId = inputOptions.cakeName.replace(/[^A-Za-z0-9]+/g, "") + "_dropdown",
 			className = classNames("dropdownInput", {
-				"has-error": validationMessage !== null,
+				"has-error": this.state.hasError,
 				"dropdownInput-required": inputOptions.required
 			}),
 			children = this.props.children;
@@ -136,7 +153,11 @@ class DropdownInput extends React.Component {
 		//dropdownOptions.btnClassName = "form-control";
 		dropdownOptions.style = {height: "auto;"};
 		dropdownOptions.className = "form-group";
+		if (this.props.dropdownClassName) {
+			dropdownOptions.className += " " + this.props.dropdownClassName;
+		}
 		dropdownOptions.onOpen = this.handleDropdownOpen.bind(this);
+		dropdownOptions.hasError = this.state.hasError;
 
 		inputOptions.onValueChange = this.handleValueChange.bind(this);
 		inputOptions.value = this.state.value;
@@ -164,10 +185,16 @@ class DropdownInput extends React.Component {
 				dropdownOptions.buttonText = this.state.collapseOption.collapseValue;
 			}
 		} else {
-
+			
 		}
+
 		return <div className={className} id={dropdownId}>
-			<CakeInput type="hidden" {...inputOptions} />
+			<CakeInput 
+				type="hidden" 
+				onError={this.handleError.bind(this)}
+				onErrorFix={this.handleErrorFix.bind(this)}
+				{...inputOptions} 
+			/>
 			{label}
 			<BSDropdown {...dropdownOptions}>{children}</BSDropdown>
 			{helpText}
@@ -211,7 +238,12 @@ class CollapseMenuControl extends React.Component {
 	}
 
 	componentDidMount() {
+		this._isMounted = true;
 		this.updateActive();
+	}
+
+	componentWillUnmount() {
+		this._isMounted = false;
 	}
 
 	componentDidUpdate(prevProps, prevState) {
@@ -219,13 +251,17 @@ class CollapseMenuControl extends React.Component {
 	}
 
 	handleInputClick(value, label) {
-		this.setState({autoFillText: ""}, () => {
-			this.props.onPick(this._collapseDataFlat[value]);
-		});
+		if (this._isMounted) {
+			this.setState({autoFillText: ""}, () => {
+				this.props.onPick(this._collapseDataFlat[value]);
+			});
+		}
 	}
 
 	handleInputType(newText) {
-		this.setState({autoFillText: newText});
+		if (this._isMounted) {
+			this.setState({autoFillText: newText});
+		}
 	}
 
 	updateActive(forceUpdate) {
@@ -362,6 +398,7 @@ class CollapseMenu extends React.Component {
 		this.state = {
 			open: false
 		};
+		this._isMounted = false;
 	}
 
 	static get defaultProps() {
@@ -374,6 +411,14 @@ class CollapseMenu extends React.Component {
 		}
 	}
 
+	componentDidMount() {
+		this._isMounted = true;
+	}
+	
+	componentWillUnmount() {
+		this._isMounted = false;
+	}
+
 	shouldComponentUpdate(newProps, newState) {
 		return (this.props.activeValue != newProps.activeValue) || 
 			!_.isEqual(this.props.options, newProps.options) ||
@@ -382,28 +427,33 @@ class CollapseMenu extends React.Component {
 	}
 
 	handleOpen(setOpen) {
-		this.setState({open: setOpen});
-	}
-
-	handleContainsActive() {
-		if (!this.state.open) {
-			this.setState({open: true}, () => {
-				this.props.onContainsActive();
-			});
-		} else {
-			this.props.onContainsActive();
+		if (this._isMounted) {
+			this.setState({open: setOpen});
 		}
 	}
 
+	handleContainsActive() {
+		if (this._isMounted) {
+			if (!this.state.open) {
+				this.setState({open: true}, () => {
+					this.props.onContainsActive();
+				});
+			} else {
+				this.props.onContainsActive();
+			}
+		}
+	}
 
 	// Passes the selected option from the child to the parent
 	passPick(option) {
-		if (!this.state.open) {
-			this.setState({open: true}, () => {
+		if (this._isMounted) {
+			if (!this.state.open) {
+				this.setState({open: true}, () => {
+					this.props.onPick(option);
+				});
+			} else {
 				this.props.onPick(option);
-			});
-		} else {
-			this.props.onPick(option);
+			}
 		}
 	}
 
@@ -491,7 +541,7 @@ class CollapseMenuItem extends React.Component {
 	render() {
 		let isActive = this.isActive(),
 			isOpen = this.state.open,
-			className = classNames('collapseMenuItem-link', {
+			className = classNames('extra collapseMenuItem-link', {
 				active : isActive,
 				"collapseMenuItem-link-with-children": this.props.option.children.length
 			}, this.state.open ? "im-open" : "im-closed"),

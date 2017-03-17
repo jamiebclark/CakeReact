@@ -150,13 +150,14 @@ class ProfileAutoFillPicked extends React.Component {
 	static get defaultProps() {
 		return {
 			cakeModel: "",
+			cakePrimaryKey: "id",
 			data: {}
 		}
 	}
 
 	render() {
 		return <div className="ProfileAutoFillPicked">
-			<CakeInput cakeName={this.props.cakeModel + ".id"} type="hidden" value={this.props.data.value} />
+			<CakeInput cakeName={this.props.cakeModel + "." + this.props.cakePrimaryKey} type="hidden" value={this.props.data.value} />
 			<h4>
 				<span className={Inflector.underscore(this.props.cakeModel)}>{this.props.data.label}</span><br/>
 				<small>{this.props.data.subtitle}</small>

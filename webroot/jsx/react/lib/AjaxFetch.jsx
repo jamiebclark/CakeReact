@@ -1,5 +1,13 @@
 import {Promise}				from "es6-promise";
-import fetch 					from "node-fetch";
+
+const isEdge = /Edge\//.test(navigator.userAgent);
+
+if (!isEdge) {
+	var fetch = require("node-fetch");
+} else {
+	window.fetch = null;
+	var fetch = require('isomorphic-fetch');
+}
 
 
 /**
@@ -31,7 +39,6 @@ class AjaxFetch {
 	 * @return Promise;
 	 **/
 	getJSON(url) {
-		console.log("AJAX FETCH: " + url);
 		return this.get(url).then(response => {
 			return response.json();
 		});

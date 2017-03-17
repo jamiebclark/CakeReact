@@ -5,6 +5,7 @@ var cakeFormConstants = {
 	SET_URL: 			"SET_URL",
 	SET_VAL: 			"SET_VAL",
 	SET_VAL_AND_UPDATE: "SET_VAL_AND_UPDATE",
+	UPDATE: 			"UPDATE",
 
 	SET_ACTIVE: 		"SET_ACTIVE",
 	SET_LOCATION: 		"SET_LOCATION",

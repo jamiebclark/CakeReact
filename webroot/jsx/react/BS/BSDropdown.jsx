@@ -43,7 +43,9 @@ class BSDropdown extends React.Component {
 			activeValue: 		null,
 
 			linkWrap: 			false,
-			open: 				false
+			open: 				false,
+			required: 			false,
+			hasError: 			false
 		};
 	}
 
@@ -190,7 +192,7 @@ class BSDropdown extends React.Component {
 	render() {
 		var children = this.props.children;
 
-		if (this.props.data.length) {
+		if (_.size(this.props.data) > 0) {
 			children = this._renderData();
 		} else if (this.props.options.length) {
 			children = this._renderOptions();
@@ -221,6 +223,8 @@ class BSDropdown extends React.Component {
 				onClick={this.handleButtonClick.bind(this)}
 				open={this.state.open}
 				className={this.props.btnClassName}
+				required={this.props.required}
+				hasError={this.props.hasError}
 				>
 				{buttonText}
 			</BSDropdownButton>
@@ -252,7 +256,9 @@ class BSDropdownButton extends React.Component {
 			id: null,
 			open: false,
 			onClick: function(setVal) {},
-			className: null
+			className: null,
+			required: false,
+			hasError: false
 		};
 	}
 
@@ -263,7 +269,10 @@ class BSDropdownButton extends React.Component {
 
 	render() {
 		//data-toggle="dropdown"
-		var className = classNames("btn", "btn-default", "dropdown-toggle", this.props.className);
+		var className = classNames("btn", "btn-default", "dropdown-toggle", this.props.className, {
+			"required": this.props.required,
+			"has-error": this.props.hasError
+		});
 		return <button 
 			className={className} 
 			type="button"
@@ -352,7 +361,7 @@ class BSDropdownOption extends React.Component {
 
 	getContent() {
 		var children = this.props.children;
-		if(Object.keys(this.props.data).length) {
+		if(_.keys(this.props.data).length) {
 			children = this.renderData(this.props.data);
 		}
 		return children;

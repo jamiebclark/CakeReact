@@ -9,16 +9,24 @@ window.jQuery = require('jquery');
 require('jquery-ui/ui/widgets/datepicker');
 require('js/jquery/timepicker/jquery.timepicker.min.js');
 
+function numberWithCommas(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 class BSFormControl extends React.Component {
 	constructor() {
 		super(...arguments);
 		this.state = {
-			value: this.props.value
+			value: this.props.value,
+			checked: this.props.checked
 		};
 		this.handleChange = this.handleChange.bind(this);
+		this.handleClick = this.handleClick.bind(this);
 		this.handleValueChange = this.handleValueChange.bind(this);
 		this.handleBlur = this.handleBlur.bind(this);
 		this.handleFocus = this.handleFocus.bind(this);
+
+		this._isMounted = false;
 	}
 	static get defaultProps () {
 		return {
@@ -27,9 +35,13 @@ class BSFormControl extends React.Component {
 			className: 		'',
 			name: 			'',
 			value: 			null,
+			checked: 		null,
 			default: 		null,
 			input: 			false,
+			inputRef: 		"formControl",
 			onChange: 		function(e) {},
+			onChecked: 		function(newChecked) {},
+			onClick: 		function(e) {},
 			onValueChange: 	function(newVal) {},
 			onBlur: 		function() {},
 			onFocus: 		function() {},
@@ -39,30 +51,8 @@ class BSFormControl extends React.Component {
 		};
 	}
 
-	handleChange(e) {
-		this.handleValueChange(e.target.value);
-		this.props.onChange(e);
-	}
-
-	handleValueChange(newVal, forceUpdate) {
-		if (forceUpdate || newVal !== this.state.value) {
-			this.setState({value: newVal}, () => {
-				this.props.onValueChange(this.state.value);	
-			});
-		}
-	}
-
-	handleBlur (e) {
-		//console.log("BLURRED " + this.props.className);
-		this.props.onBlur(e);
-	}
-
-	handleFocus(e) {
-		//console.log('FOCUS ' + this.props.className);
-		this.props.onFocus(e);
-	}
-
 	componentDidMount() {
+		this._isMounted = true;
 		this.checkValue();
 
 		if (this._input) {
@@ -93,10 +83,68 @@ class BSFormControl extends React.Component {
 		}
 	}
 
+	componentWillUnmount() {
+		this._isMounted = false;
+	}
+
 	componentWillReceiveProps(newProps) {
 		if (newProps.value !== this.props.value) {
 			this.checkValue(newProps.value);
 		}
+		if (newProps.checked !== this.props.checked) {
+			this.handleChecked(newProps.checked);
+		}
+
+		if (newProps.options !== this.props.options) {
+			this.handleValueChange(newProps.value, true);
+		}
+	}
+
+	handleChange(e) {
+		if (!this.canBeChecked()) {
+			this.handleValueChange(e.target.value);
+			this.props.onChange(e);
+		}
+	}
+
+	handleValueChange(newVal, forceUpdate) {
+		if (this._isMounted && 
+			(forceUpdate || newVal !== this.state.value)
+		) {
+			this.setState({value: newVal}, () => {
+				this.props.onValueChange(this.state.value);	
+			});
+		}
+	}
+
+	handleClick(e) {
+		e.persist();
+		if (this.canBeChecked()) {
+			this.handleChecked(e.target.checked);
+		}
+		this.props.onClick(e);
+	}
+
+	handleChecked(checked, forceUpdate) {
+		if (this._isMounted) {
+			var val = checked ? this.props.value : null;
+			this.setState({
+				checked: checked,
+			}, () => {
+				this.handleValueChange(val, true);
+				this.props.onChecked(checked);
+			});
+		}
+	}
+
+	handleBlur (e) {
+		//console.log("BLURRED " + this.props.className);
+		this.props.onBlur(e);
+	}
+
+	handleFocus(e) {
+		//console.log('FOCUS ' + this.props.className);
+		this.props.onFocus(e);
 	}
 
 	getOptions(data) {
@@ -105,13 +153,17 @@ class BSFormControl extends React.Component {
 		for (var key in data) {
 			var opt = data[key],
 				value = opt,
-				display = opt;
+				display = opt,
+				props = {};
+
 			if (opt && typeof opt === "object") {
 				if (typeof opt.key !== "undefined" && typeof opt.value !== "undefined") {
 					value = opt.key;
 					display = opt.value;
+					if (opt.disabled) {
+						props.disabled = true;
+					}
 				} 
-
 				if (typeof display === "object") {
 					options.push(<optgroup key={optGroupIndex++} label={value} >
 						{this.getOptions(display)}
@@ -122,6 +174,7 @@ class BSFormControl extends React.Component {
 			options.push(<option 
 				key={value} 
 				value={value}
+				{...props}
 			>{display}</option>);
 		}
 		return options;
@@ -143,7 +196,7 @@ class BSFormControl extends React.Component {
 		}
 
 		// Converts number strings to actual numbers
-		value = ValueValidate.fixNumeric(value);
+		//value = ValueValidate.fixNumeric(value);
 
 		if (type === "select" && typeof options === "object") {
 			value = ValueValidate.fixOptions(value, options);
@@ -157,16 +210,28 @@ class BSFormControl extends React.Component {
 		}
 	}
 
+	canBeChecked() {
+		return this.props.type == "checkbox" || this.props.type == "radio";
+	}
+
 	render () {
 		var _this = this,
 			tagName = "input",
-			childOptions = null,
 			value = this.state.value,
+			checked = this.state.checked,
+			childOptions = null,
 			{className, type, options, id, ...other} = this.props;
 
 		className = classNames(className, {
 			'form-control': !_.includes(["checkbox", "radio"], type)
 		});
+
+		if (this.canBeChecked()) {
+			checked = checked === true;
+			value = checked ? this.props.value : null;
+		} else {
+			checked = null;
+		}
 
 		var props = {
 			ref: 			this.props.inputRef,
@@ -178,9 +243,18 @@ class BSFormControl extends React.Component {
 			placeholder: 	this.props.placeholder,
 			checked: 		this.props.checked,
 			autoComplete: 	this.props.autoComplete,
+
+			step: 			this.props.step,
+			min: 			this.props.min,
+			max: 			this.props.max,
+			pattern: 		this.props.pattern,
+
 			value: 			value,
+			checked: 		checked,
+
 			onChange: 		this.handleChange,
 			//onValueChange: 	this.handleValueChange,
+			onClick: 		this.handleClick,
 			onBlur: 		this.handleBlur,
 			onFocus: 		this.handleFocus,
 			//options: 		options,
@@ -197,7 +271,6 @@ class BSFormControl extends React.Component {
 		} else if (type == "textarea" || type == "select") {
 			tagName = type;
 			type = null;
-
 		} else if (type == "date") {
 			props.type = "text";
 			props.ref = (c) => this._input = c;

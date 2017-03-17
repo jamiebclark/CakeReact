@@ -1,6 +1,7 @@
 import React				from 'react';
 
 require('../../../../../Plugin/CenteredContent/webroot/css/style.css');
+require('../../../../scss/views/templates/centered_content.scss');
 
 class CenteredContent extends React.Component {
 	render() {

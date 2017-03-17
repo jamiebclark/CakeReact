@@ -33,16 +33,27 @@ class CenteredContentForm extends React.Component {
 			layoutProps[i] = formProps[i];
 			delete formProps[i];
 		}
-
 		var footer = [];
-
 		if (layoutProps.hasSubmit) {
 			footer = [];
+			var hasBack = layoutProps.backUrl;
 			if (layoutProps.hasSubmit) {
-				if (layoutProps.backUrl) {
-					footer.push(CenteredContentFormButton(layoutProps.backText, layoutProps.backIcon, layoutProps.backUrl));
+				if (hasBack) {
+					footer.push(
+						CenteredContentFormButton(
+							layoutProps.backText, 
+							layoutProps.backIcon, 
+							layoutProps.backUrl,
+							{
+								className: "btn btn-lg btn-default pull-left"
+							}
+						)
+					);
 				}
 				footer.push(CenteredContentFormButton(layoutProps.submitText, layoutProps.submitIcon));
+				if (hasBack) {
+					footer = <div className="text-right">{footer}</div>;
+				}
 			}
 		}
 
@@ -62,11 +73,15 @@ class CenteredContentForm extends React.Component {
 export default CenteredContentForm;
 
 var buttonCount = 1;
-function CenteredContentFormButton(text, icon, url) {
+function CenteredContentFormButton(text, icon, url, passedOpts) {
 	var opts = {
 		key: 'formbutton' + (buttonCount++),
 		icon: icon
 	};
+	if (typeof passedOpts !== "undefined") {
+		opts = _.merge(opts, passedOpts);
+	}
+
 	if (typeof url !== "undefined" && url) {
 		opts.component = 'a';
 		opts.href = url;

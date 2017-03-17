@@ -78,7 +78,7 @@ class CakeDateRangeInput extends React.Component {
 	}
 
 	componentDidUpdate(prevProps, prevState) {
-		if (this.props.allDayCheckbox) {
+		if (this.props.allDayCheckbox && this.state.valid) {
 			let isAllDay = this.isAllDay();
 			if (isAllDay != this.state.allDay) {
 				this.setAllDay(isAllDay);
@@ -107,7 +107,8 @@ class CakeDateRangeInput extends React.Component {
 			moment1: false,
 			moment2: false,
 			duration: 0,
-			valid: false
+			valid: false,
+			allDay: false
 		};
 		if (this.state) {
 			for (var i in this.state) {
@@ -121,6 +122,20 @@ class CakeDateRangeInput extends React.Component {
 		}
 		state.moment1 = moment(state.value1, this.props.valueFormat),
 		state.moment2 = moment(state.value2, this.props.valueFormat);
+
+		// Forces times to All-day parameters
+		if (state.allDay) {
+			if (state.moment1.isValid()) {
+				state._storedTime1 = state.moment1.format(this.props.timeFormat);
+				state.value1 = this.forceTime(state.value1, ALLDAY_TIME_START);
+				state.moment1 = moment(state.value1, this.props.valueFormat);
+			}
+			if (state.moment2.isValid()) {
+				state._storedTime2 = state.moment2.format(this.props.timeFormat);
+				state.value2 = this.forceTime(state.value2, ALLDAY_TIME_END);
+				state.moment2 = moment(state.value2, this.props.valueFormat);
+			}
+		}
 
 		if (state.moment1.isValid() && state.moment2.isValid()) {
 			state.valid = true;
@@ -141,6 +156,9 @@ class CakeDateRangeInput extends React.Component {
 	}
 
 	handleValueChange1(newVal) {
+		if (this.state.allDay) {
+			newVal = this.forceTime(newVal, ALLDAY_TIME_START);
+		}
 		this.setState({tempValue1: newVal}, () => {
 			if (!this._input1Focus) {
 				this.updateValue1();
@@ -149,6 +167,9 @@ class CakeDateRangeInput extends React.Component {
 	}
 
 	handleValueChange2(newVal) {
+		if (this.state.allDay) {
+			newVal = this.forceTime(newVal, ALLDAY_TIME_END);
+		}	
 		this.setState({tempValue2: newVal}, () => {
 			if (!this._input1Focus) {
 				this.updateValue2();
@@ -242,14 +263,14 @@ class CakeDateRangeInput extends React.Component {
 			if (this._storedTime2) {
 				value2 = date2 + " " + this._storedTime2;
 			}
-			// Makes sure the value doesn't equal a full day if we're unchecking the checkbox
 			moment1 = moment(value1, this.props.valueFormat);
 			moment2 = moment(value2, this.props.valueFormat);
 			if (
 				moment1.format(this.props.timeFormat) == ALLDAY_TIME_START && 
 				moment2.format(this.props.timeFormat) == ALLDAY_TIME_END
 			) {
-				value2 = moment2.format(this.props.dateFormat) + " 23:58:00";
+				// Makes sure the value doesn't equal a full day if we're unchecking the checkbox
+				value2 = moment2.format(this.props.dateFormat) + " 23:58:00"; 
 			}
 		}
 
@@ -260,13 +281,28 @@ class CakeDateRangeInput extends React.Component {
 			tempValue2: value2,
 			allDay: set
 		};
-
+		//console.log(["SETTING STATE", this.getState(state)]);
+		//console.trace();
 		this.setState(this.getState(state));		
 	}
 
 	isAllDay() {
 		return (this.state.moment1.format(this.props.timeFormat) == ALLDAY_TIME_START) && 
 				(this.state.moment2.format(this.props.timeFormat) == ALLDAY_TIME_END);
+	}
+
+	forceTime(date, newTime, dateFormat, timeFormat) {
+		if (typeof dateFormat === "undefined") {
+			var dateFormat = this.props.dateFormat;
+		}
+		if (typeof timeFormat === "undefined") {
+			var timeFormat = this.props.timeFormat;
+		}
+		var valueFormat = dateFormat + " " + timeFormat,
+			m = moment(date, valueFormat),
+			date = m.format(dateFormat) + " " + newTime;
+		date = moment(date, valueFormat).format(valueFormat);
+		return date;
 	}
 
 	render() {

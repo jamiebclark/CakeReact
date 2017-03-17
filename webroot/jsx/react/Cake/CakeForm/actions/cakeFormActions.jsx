@@ -20,6 +20,13 @@ var cakeFormActions = {
 			data: {key: key, val: val, modelName:modelName}
 		});
 	},
+	
+	update: function() {
+		CakeFormDispatcher.handleAction({
+			actionType: cakeFormConstants.UPDATE,
+			data: {}
+		});
+	},
 
 	setValUnmounted: function(key, val, modelName) {
 		CakeFormDispatcher.handleAction({

@@ -14,7 +14,7 @@
 		var r = {},
 			hasDifference = false;
 		if (typeof keys === "undefined") {
-			keys = Object.keys(obj1);
+			keys = _.keys(obj1);
 		}
 
 		for (let i in keys) {
@@ -42,7 +42,7 @@
 	},
 
 	hasDifference: function(obj1, obj2) {
-		if (!_.isEqual(Object.keys(obj1), Object.keys(obj2))) {
+		if (!_.isEqual(_.keys(obj1), _.keys(obj2))) {
 			return true;
 		} else {
 			return this.hasDifferenceByPick(obj1, obj2);

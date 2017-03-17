@@ -1,5 +1,6 @@
-import React from "react";
-import $ from "jquery";
+import React 		from "react";
+import $ 			from "jquery";
+import NumberFormat from "./NumberFormat.jsx";
 
 require("scss/layout/_numeric.scss");
 
@@ -54,18 +55,6 @@ class Numeric extends React.Component {
 		$()
 	}
 
-	addCommas(nStr) {
-		nStr += '';
-		var x = nStr.split('.'),
-			x1 = x[0],
-			x2 = x.length > 1 ? '.' + x[1] : '',
-			rgx = /(\d+)(\d{3})/;
-		while (rgx.test(x1)) {
-			x1 = x1.replace(rgx, '$1' + ',' + '$2');
-		}
-		return x1 + x2;
-	}
-
 	render() {
 		var {component, className, value, before, after, commas, ...props} = this.props,
 			children = [];
@@ -73,7 +62,7 @@ class Numeric extends React.Component {
 			value = 0;
 		} else {
 			if (this.props.commas) {
-				value = this.addCommas(value);
+				value = NumberFormat.addCommas(value);
 			}
 		}
 

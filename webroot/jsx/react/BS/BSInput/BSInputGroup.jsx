@@ -1,4 +1,5 @@
 import React from 'react';
+import classNames from "classnames";
 
 class BSInputGroup extends React.Component {
 	static get defaultProps() {
@@ -6,7 +7,8 @@ class BSInputGroup extends React.Component {
 			addonBefore: "",
 			addonAfter: "",
 			buttonBefore: "",
-			buttonAfter: ""
+			buttonAfter: "",
+			className: ""
 		};
 	}
 	render() {
@@ -17,6 +19,7 @@ class BSInputGroup extends React.Component {
 			["buttonBefore", "before", 'BSInputGroupButton'],
 			["buttonAfter", "after", 'BSInputGroupButton']
 		];
+		var className = classNames(this.props.className, "input-group");
 
 		for (var i in map) {
 			if (this.props[map[i][0]]) {
@@ -24,13 +27,14 @@ class BSInputGroup extends React.Component {
 			}
 		}
 
-		return (<div className="input-group">
+		return (<div className={className}>
 			{addons.before}
 			{this.props.children}
 			{addons.after}
 		</div>);
 	}
 }
+
 
 class BSInputGroupButton extends React.Component {
 	render() {

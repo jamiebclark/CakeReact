@@ -1,5 +1,6 @@
 //var React 			= require("react");
 import React 				from 'react';
+import ReactDOM				from 'react-dom';
 import CakeInput 			from "./CakeInput.jsx";
 import SubmitButton			from "./SubmitButton.jsx";
 
@@ -7,6 +8,8 @@ import LoadingOverlay 		from "react/LoadingOverlay.jsx";
 import Alert				from "react/Alert/components/Alert.jsx";
 
 import alertActions 		from 'react/Alert/actions/alertActions.jsx';
+import alertStore 			from 'react/Alert/stores/alertStore.jsx';
+
 import cakeFormActions		from '../actions/cakeFormActions.jsx';
 import cakeFormStore		from '../stores/cakeFormStore.jsx';
 import CakeRouter			from 'react/Cake/lib/CakeRouter.jsx';
@@ -18,6 +21,27 @@ import _ from "lodash";
 
 require("scss/modules/react/cake_form/_cake_form.scss");
 
+var defaultLoadingOverlays = {
+	saving: {
+		show: true,
+		message: 'Saving',
+		iconType: 'save',
+		iconAnimation: 'pulsate'
+	},
+	redirecting: {
+		show: true,
+		message: 'Redirecting',
+		iconType: 'refresh',
+		iconAnimation: 'spin'
+	},
+	loading: {
+		show: true,
+		message: 'Loading...',
+		iconType: 'spinner',
+		iconAnimation: 'spin'
+	}
+};
+
 class CakeForm extends React.Component {
 	constructor(props) {
 		super(...arguments);
@@ -26,7 +50,9 @@ class CakeForm extends React.Component {
 		this.state = {
 			loading: 		this.props.loading || this.props.loadUrl,
 			storeStatus: 	"",
-			dataLoaded: 	false
+			dataLoaded: 	false,
+			loadingOverlayKey: 		false,
+			loadingOverlayProps: 	{show: false}
 		};
 
 		this.handleSubmit = this.handleSubmit.bind(this);
@@ -34,6 +60,8 @@ class CakeForm extends React.Component {
 		this.onCakeFormStoreChange = this.onCakeFormStoreChange.bind(this);
 		this.onCakeFormStoreSaved = this.onCakeFormStoreSaved.bind(this);
 		this.onCakeFormStoreLoaded = this.onCakeFormStoreLoaded.bind(this);
+
+		this.onAlertChange = this.onAlertChange.bind(this);
 	}
 
 	static get defaultProps() {
@@ -56,7 +84,9 @@ class CakeForm extends React.Component {
 			loading: 			false,
 			cakeModel:			false,
 			redirectOnSave: 	false,
-			alertIndex: 		"CakeFormAlert"
+			alertIndex: 		"CakeFormAlert",
+
+			loadingOverlays: {}
 		};
 	}
 
@@ -74,6 +104,8 @@ class CakeForm extends React.Component {
 		var modelName = this.getCakeModel();
 		alertActions.clear(this.props.alertIndex);
 
+		ReactDOM.findDOMNode(this).scrollIntoView();
+
 		e.preventDefault();
 		this.setState({loading: true}, () => {
 			if (this.props.onSubmit) {
@@ -83,7 +115,7 @@ class CakeForm extends React.Component {
 			if (typeof this.props.getData === "function") {
 				data = this.props.getData(data);
 			}
-			console.log(["SAVING", CakeRouter.parse(this.props.action)]);
+			console.log(["SAVING", CakeRouter.parse(this.props.action), data]);
 			cakeFormActions.saveData(data, CakeRouter.parse(this.props.action), modelName);
 		});
 	}
@@ -100,6 +132,8 @@ class CakeForm extends React.Component {
 		cakeFormStore.addChangeListener(this.onCakeFormStoreChange, modelName);
 		cakeFormStore.addSavedListener(this.onCakeFormStoreSaved, modelName);
 		cakeFormStore.addLoadedListener(this.onCakeFormStoreLoaded, modelName);
+		alertStore.addChangeListener(this.onAlertChange);
+
 		this.loadUrl();
 	}
 
@@ -107,6 +141,7 @@ class CakeForm extends React.Component {
 		if (this.props.loadUrl !== "" && this.props.loadUrl !== prevProps.loadUrl) {
 			this.loadUrl();
 		}
+		this.setLoadingOverlayProps();
 	}
 
 	loadUrl() {
@@ -123,20 +158,25 @@ class CakeForm extends React.Component {
 		cakeFormStore.removeLoadedListener(this.onCakeFormStoreLoaded, modelName);
 		cakeFormStore.removeChangeListener(this.onCakeFormStoreChange, modelName);
 		cakeFormStore.removeSavedListener(this.onCakeFormStoreSaved, modelName);
+		alertStore.removeChangeListener(this.onAlertChange);
+	}
+
+	onAlertChange() {
+		if (this._isMounted) {
+			if (alertStore.get(this.props.alertIndex)) {
+				this.setState({loading: false});
+			}
+		}
 	}
 
 	onCakeFormStoreChange() {
 		if (this._isMounted) {
-			var modelName = this.getCakeModel();
-			this.setState({
-				loading: cakeFormStore.isLoading(modelName),
-				dataLoaded: !cakeFormStore.isLoading(modelName),
-				storeStatus: cakeFormStore.getStatus(modelName)
-			});
+			this.setLoadingOverlayState();
 		}
 	}
 
 	onCakeFormStoreLoaded() {
+		console.log("LOADED!");
 		if (this._isMounted) {
 			this.setState({dataLoaded: true});
 		}
@@ -148,22 +188,101 @@ class CakeForm extends React.Component {
 			if (cakeFormStore.getStatus(modelName) === "saved") {
 				this.props.onSubmitSuccess();
 				if (this.props.redirectOnSave) {
-					var result = cakeFormStore.getResult(modelName);
-					window.location.href = CakeRouter.parse({
-						controller: Inflector.tableize(modelName),
-						action: 'view',
-						pass: [result.id]
-					});
+					var result = cakeFormStore.getResult(modelName),
+						redirect = this.props.redirectOnSave;
+					if (redirect === true) {
+						redirect = {
+							controller: Inflector.tableize(modelName),
+							action: 'view',
+							pass: [result.id]
+						};
+					} else if (typeof redirect === "object") {
+						if (typeof redirect.pass === "undefined") {
+							redirect.pass = [];
+						}
+						redirect.pass.push(result.id);
+					}
+
+					if (typeof redirect === "object") {
+						redirect = CakeRouter.parse(redirect);
+					}
+					
+					window.location.href = redirect;
 				}
 			} else {
-				this.props.onSubmitFail();
+				this.setLoadingOverlayState(() => {
+					this.setLoadingOverlayProps();
+					this.props.onSubmitFail();
+				});
 			}
+		}
+	}
+
+	/**
+	 * Updates the LoadingOverlay state based on CakeFormStore values
+	 *
+	 * @param function afterSet Method to call after the state has been set
+	 * @return bool;
+	 **/
+	setLoadingOverlayState(afterSet) {
+		var modelName = this.getCakeModel();
+		return this.setState({
+			loading: cakeFormStore.isLoading(modelName),
+			dataLoaded: !cakeFormStore.isLoading(modelName),
+			storeStatus: cakeFormStore.getStatus(modelName)
+		}, () => {
+			if (typeof afterSet === "function") {
+				afterSet();
+			}
+		});
+	}
+
+	/**
+	 * Returns the LoadingOverlay props
+	 *
+	 * @param string key The LoadingOverlay key
+	 * @return object
+	 **/
+	getLoadingOverlayProps(key) {
+		var props = {};
+		if (typeof defaultLoadingOverlays[key] !== "undefined") {
+			_.merge(props, defaultLoadingOverlays[key]);
+		}
+		if (typeof this.props.loadingOverlays[key] !== "undefined") {
+			_.merge(props, this.props.loadingOverlays[key]);
+		}
+		return Object.keys(props).length ? props : false;
+	}
+
+	setLoadingOverlayProps() {
+		var loadingOverlayKey = false,
+			loadingOverlayProps = this.state.loadingOverlayProps,
+			isLoading = this.state.loading || this.props.status == "loading";
+
+		if (this.state.storeStatus === "saving") {
+			loadingOverlayKey = 'saving';
+		} else if (this.state.storeStatus === "saved" && this.props.redirectOnSave) {
+			loadingOverlayKey = 'redirecting';
+		} else if (isLoading) {
+			loadingOverlayKey = 'loading';
+		} 
+		var newLoadingOverlayProps = this.getLoadingOverlayProps(loadingOverlayKey);
+		if (newLoadingOverlayProps) {
+			loadingOverlayProps = newLoadingOverlayProps;
+		} else {
+			loadingOverlayProps.show = false;
+		}
+
+		if (loadingOverlayKey != this.state.loadingOverlayKey) {
+			this.setState({
+				loadingOverlayKey: loadingOverlayKey, 
+				loadingOverlayProps: loadingOverlayProps
+			});
 		}
 	}
 
 	render() {
 		var {className, action, ...other} = this.props,
-			loading = {show: false},
 			dataLoaded = this.state.dataLoaded,
 			className = classNames(
 				className, 
@@ -172,28 +291,6 @@ class CakeForm extends React.Component {
 				{"cakeForm-unloaded": this.state.dataLoaded === false},
 				"hasLoadingOverlay"
 			);
-		
-		if (this.state.loading || this.props.status == "loading") {
-			loading.show = true;
-			dataLoaded = false;
-		}
-
-		if (this.state.storeStatus === "saving") {
-			loading.show = true;
-			loading.message = "Saving";
-			loading.iconType = "save";
-			loading.iconAnimation = "pulsate";
-		} else if (this.state.storeStatus === "saved" && this.props.redirectOnSave) {
-			loading.show = true;
-			loading.message = "Redirecting";
-			loading.iconType = "refresh";
-			loading.iconAnimation = "spin";
-		} else if (loading.show) {
-			loading.show = true;
-			loading.message = "Loading";
-			loading.iconType = "spinner";
-			loading.iconAnimation = "spin";
-		} 
 
 		if (!action) {
 			action = cakeFormStore.getUrl(this.getCakeModel());
@@ -211,7 +308,7 @@ class CakeForm extends React.Component {
 			onSubmit={this.handleSubmit}
 		>
 			<Alert dismiss={true} alertIndex={this.props.alertIndex} />
-			<LoadingOverlay {...loading} />
+			<LoadingOverlay className="loadingOverlayFixed" {...this.state.loadingOverlayProps} />
 			{this.props.children}
 		</form>);
 	}

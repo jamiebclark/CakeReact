@@ -19,6 +19,8 @@ import _ 						from 'lodash';
 import Store 					from "react/flux/lib/Store.jsx";
 import DataDeep 				from "react/flux/lib/DataDeep.jsx";
 
+import fetch 					from "fetch-ie8";
+
 var CHANGE_EVENT 	= 'change';
 var ACTIVE_EVENT 	= 'active';
 var SAVED_EVENT 	= 'saved';
@@ -125,9 +127,9 @@ var setVal = function(key, val, modelName) {
 			setVal(i, key[i], modelName);
 		}
 	} else {
+		//console.trace(["SETTING TO STORE", getCakeKey(key, modelName), val]);
 		getModelStore(modelName).Data.setVal(getCakeKey(key, modelName), val);
 	}
-
 }
 
 var unsetData = function(modelName) {
@@ -194,6 +196,8 @@ var loadDataUrl = function(url, modelName) {
 
 	store.url = url;
 
+	console.log(["LOADING", url]);
+	
 	store.DataLoaded.empty();
 	store.Data.empty();
 
@@ -208,11 +212,12 @@ var loadDataUrl = function(url, modelName) {
 	.then(() => {
 		new AjaxFetch().getJSON(url)
 			.then((data) => {
-				// console.log(["LOADED", url, data]);
+				console.log(["LOADED", url, data]);
 				return store.change({
 					status: "updating"
 				}).then(() => {
 					store.DataLoaded.data = data.data;
+					console.log(["DATA LOADED", data]);
 					store.Data.empty();
 					cakeFormStore.emit(getModelEvent(CHANGE_EVENT, modelName));
 				}).then(function() {
@@ -241,6 +246,19 @@ var loadData = function(modelName, cakeModelIndex, pass) {
 	console.log("LOAD FORM " + modelName + " : " + cakeModelIndex);
 }
 
+var getDeletedAssociatedIds = function() {
+	var modelName = getModel(modelName),
+		store = getModelStore(modelName),
+		deleteData = {};
+	for (var cakeModel in store.associatedIdsToDelete) {
+		deleteData[cakeModel] = [];
+		for (var cakeId in store.associatedIdsToDelete[cakeModel]) {
+			deleteData[cakeModel].push(modelIdValues[cakeId]);
+		}
+	}
+	return deleteData;
+}
+
 var deleteAssociatedIds = function(modelName) {
 	// console.log("DELETING STUFF");
 	var modelName = getModel(modelName),
@@ -251,9 +269,15 @@ var deleteAssociatedIds = function(modelName) {
 			modelIds = "";
 		for (var cakeId in modelIdValues) {
 			if (modelIdValues[cakeId] > 0) {
-				modelIds += modelIdValues[cakeId] + ",";
+				if (modelIds != "") {
+					modelIds += ",";
+				}
+				modelIds += modelIdValues[cakeId];
 			}
 		}
+		
+		console.log(["DELETING", cakeModel, modelIds]);
+
 		if (promise === null) {
 			promise = _deleteAssociatedModelIds(cakeModel, modelIds)
 		} else {
@@ -272,7 +296,10 @@ var _deleteAssociatedModelIds = function(cakeModel, ids) {
 		controller: Inflector.tableize(cakeModel),
 		action: 'delete',
 		prefix: 'json',
-		pass: [ids]
+		pass: [ids],
+		named: {
+			callbacks: "0"
+		}
 	}).getUrl();
 	return new AjaxFetch().get(url)
 		.catch((err) => {
@@ -301,7 +328,8 @@ var saveData = function(data, url, modelName) {
 		return deleteAssociatedIds();
 	})
 	.then(() => {
-		// console.log(["SAVING", url, store.Data.data]);
+		//store.Data.data._crudDeleteData = getDeletedAssociatedIds();
+		console.log(["SAVING", url, store.Data.data]);
 		new AjaxFetch().save(url, store.Data.data)
 			.then((data) => {
 				var message = [data.message],
@@ -332,6 +360,12 @@ var saveData = function(data, url, modelName) {
 						alertIndex = 'local',
 						active = true;
 				}
+				console.log({
+					type: alertType, 
+					message: message, 
+					title: alertTitle, 
+					errors: validationErrorDisplay
+				});
 				setAlert({
 					type: alertType, 
 					message: message, 
@@ -393,12 +427,20 @@ var cakeFormStore = objectAssign({}, EventEmitter.prototype, {
 	getData: function(modelName) {
 		return getModelStore(modelName).Data.data;
 	},
-	getVal: function(key, modelName) {
+
+	getLoadedData: function(modelName) {
+		return getModelStore(modelName).DataLoaded.data;
+	},
+
+	getVal: function(key, modelName, checkLoaded) {
 		var modelName = getModel(modelName);
-		key = getCakeKey(key, modelName);		
+		key = getCakeKey(key, modelName);	
+		if (typeof checkLoaded == "undefined") {
+			var checkLoaded = true;
+		}	
 		var store = getModelStore(modelName),
 			v = store.Data.getVal(key);
-		if (typeof v === "undefined" || v === null) {
+		if (checkLoaded && (typeof v === "undefined" || v === null)) {
 			v = store.DataLoaded.getVal(key);
 			if (v) {
 				setVal(key, v, modelName);
@@ -540,6 +582,9 @@ CakeFormDispatcher.register(function(payload) {
 			setVal(data.key, data.val, modelName);
 			cakeFormStore.emit(MODEL_CHANGE_EVENT);
 			break;
+		case cakeFormConstants.UPDATE:
+			cakeFormStore.emit(MODEL_CHANGE_EVENT);
+			break;
 		case cakeFormConstants.SET_MODEL:
 			setModel(data.modelName);
 			cakeFormStore.emit(MODEL_CHANGE_EVENT);
@@ -566,7 +611,7 @@ CakeFormDispatcher.register(function(payload) {
 			if (typeof data.cakeModel !== "undefined" && data.cakeModel !== null) {
 				modelKey = data.cakeModel;
 			}
-			if (typeof store.associatedIdsToDelete[modelKey]) {
+			if (typeof store.associatedIdsToDelete[modelKey] === "undefined") {
 				store.associatedIdsToDelete[modelKey] = {};
 			}
 			store.associatedIdsToDelete[modelKey][data.cakeId] = data.cakeId;
@@ -579,12 +624,10 @@ CakeFormDispatcher.register(function(payload) {
 			}
 			delete store.associatedIdsToDelete[modelKey][data.cakeId];
 			break;
-
 		case cakeFormConstants.DELETE_ID:
 			var store = getModelStore(modelName);
 			store.associatedIdsToDelete = {};
 			store.associatedIdsToDelete[modelName] = {};
-
 			if (typeof data.cakeId === "object") {
 				for (let i in data.cakeId) {
 					store.associatedIdsToDelete[modelName][data.cakeId[i]] = data.cakeId[i];

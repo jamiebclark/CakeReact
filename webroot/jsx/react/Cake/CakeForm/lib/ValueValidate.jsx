@@ -38,7 +38,13 @@ var ValueValidate = {
 	},
 	fixNumeric: function(value) {
 		if (this.isNumeric(value)) {
-			value = parseInt(value, 10);
+			value = parseFloat(value, 10);
+		}	
+		return value;
+	},
+	parseNumeric: function(value) {
+		if (this.isNumeric(value)) {
+			value = value.toString().replace(/[^0-9\.]/, "");
 		}	
 		return value;
 	},

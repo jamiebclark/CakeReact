@@ -27,7 +27,8 @@ class BSInput extends React.Component {
 			status:			'',
 			component: 		false,
 			disabled: 		false,
-			style: 			{}
+			style: 			{},
+			labelMask: 		false,
 		};
 	}
 
@@ -59,12 +60,13 @@ class BSInput extends React.Component {
 
 	render() {
 		var {addonBefore, addonAfter, buttonBefore, buttonAfter,
-			type, id, input, label, status, ...other} = this.props,
+			type, id, input, label, labelWrap, status, ...other} = this.props,
 			wrap = type != "hidden" && this.props.wrap,
 			inputId = id ? id : this.getInputId(),
-			className = "",
 			statusClass = this.getStatusClass(),
-			inputClass = wrap ? statusClass : "";
+			inputClass = wrap ? statusClass : "",
+			className = classNames(this.props.className, statusClass),
+			out;
 
 		this.props.onLocate(inputId);
 		
@@ -86,7 +88,7 @@ class BSInput extends React.Component {
 
 		if (addonBefore || addonAfter || buttonBefore || buttonAfter) {
 			input = (<BSInputGroup 
-				className={statusClass} 
+				className={wrap ? "" : className} 
 				addonBefore={addonBefore} 
 				addonAfter={addonAfter}
 				buttonBefore={buttonBefore}
@@ -97,17 +99,20 @@ class BSInput extends React.Component {
 		}
 
 		if (!wrap) {
-			return input;
+			out = input;
 		} else {
-			return (<BSFormGroup 
+			out = (<BSFormGroup 
 				id={inputId} 
 				label={label} 
-				className={statusClass}
+				labelWrap={labelWrap}
+				className={className}
 				{...(_.pick(this.props, ['before', 'between', 'after', 'help']))}
 			>
 				{input}
 			</BSFormGroup>);
 		}
+
+		return out;
 	}
 }
 

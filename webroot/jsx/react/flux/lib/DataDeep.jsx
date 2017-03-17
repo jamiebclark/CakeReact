@@ -30,7 +30,7 @@ class DataDeep {
 		}
 		
 		// Makes sure numbers stay as numbers
-		val = ValueValidate.fixNumeric(val);
+		//val = ValueValidate.fixNumeric(val);
 
 		_.set(this.dataDeep, key, val);
 		this.dataFlat[key] = val;
