@@ -11,6 +11,7 @@ class ReactHelper extends AppHelper {
 		foreach ($data as $k => $v) {
 			$attrs['data-' . $k] = $v;
 		}
+
 		$out = $this->Html->div(null, '', $attrs);
 		$out .= $this->babel($babelPath);
 		return $out;
